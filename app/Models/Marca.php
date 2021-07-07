@@ -28,4 +28,9 @@ class Marca extends Model
             'nome.min' => 'O nome precisa ter 3 caracteres'
         ];
     }
+
+    public function modelos()
+    {
+        return $this->hasMany('App\Models\Modelo');
+    }
 }

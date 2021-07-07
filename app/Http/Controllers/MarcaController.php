@@ -19,9 +19,34 @@ class MarcaController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
-    {
-        $marcas = $this->marca->all();
+    public function index(Request $request): JsonResponse
+    {   
+        $marcas = [];
+
+        if($request->has('atributos_modelos')) {
+            $atributos_modelos = $request->get('atributos_modelos');
+            $marcas = $this->marca->with('modelos:id,'. $atributos_modelos);
+        } else {
+            $marcas = $this->marca->with('modelos');
+        }
+
+        if($request->has('filtro')) {
+            $filtros = explode(';', $request->filtro);
+
+            foreach($filtros as $key => $condicao) {
+                $c = explode(':', $condicao);
+                $marcas = $marcas->where($c[0], $c[1], $c[2]);
+            }
+        }
+
+        if($request->has('atributos')) {
+            $atributos = $request->get('atributos'); 
+            $marcas = $marcas->selectRaw($atributos)->get();   
+            //dd($request->get('atributos'));
+        } else {
+            $marcas = $marcas->get();
+        }
+
         return response()->json($marcas, 200);
     }
 
@@ -57,7 +82,7 @@ class MarcaController extends Controller
      */
     public function show($id)
     {   
-        $marca = $this->marca->find($id);
+        $marca = $this->marca->with('modelos')->find($id);
 
         if ($marca === null) {
             return response()->json(['erro' => 'Resource is null'], 404);
@@ -111,10 +136,14 @@ class MarcaController extends Controller
         $imagem = $request->file('imagem');
         $imagem_urn = $imagem->store('imagens', 'public');
 
-        $marca->update([
+        $marca->fill($request->all());
+        $marca->imagem = $imagem_urn;
+        $marca->save();
+
+        /* $marca->update([
             'nome' => $request->get('nome'),
             'imagem' => $imagem_urn
-        ]);
+        ]); */
 
         return response()->json($marca, 200);
     }

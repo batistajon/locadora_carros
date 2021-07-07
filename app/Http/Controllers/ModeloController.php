@@ -15,13 +15,38 @@ class ModeloController extends Controller
 
     /**
      * Display a listing of the resource.
-     *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function index()
-    {
-        $modelo = $this->modelo->all();
-        return response()->json($modelo, 200);
+    public function index(Request $request)
+    {   
+        $modelos = [];
+
+        if($request->has('atributos_marca')) {
+            $atributos_marca = $request->get('atributos_marca');
+            $modelos = $this->modelo->with('marca:id,'. $atributos_marca);
+        } else {
+            $modelos = $this->modelo->with('marca');
+        }
+
+        if($request->has('filtro')) {
+            $filtros = explode(';', $request->filtro);
+
+            foreach($filtros as $key => $condicao) {
+                $c = explode(':', $condicao);
+                $modelos = $modelos->where($c[0], $c[1], $c[2]);
+            }
+        }
+
+        if($request->has('atributos')) {
+            $atributos = $request->get('atributos'); 
+            $modelos = $modelos->selectRaw($atributos)->get();   
+            //dd($request->get('atributos'));
+        } else {
+            $modelos = $modelos->get();
+        }
+
+        return response()->json($modelos, 200);
     }
 
     /**
@@ -70,7 +95,7 @@ class ModeloController extends Controller
      */
     public function show(Modelo $modelo)
     {
-        $modelo = $this->modelo->find($modelo);
+        $modelo = $this->modelo->with('marca')->find($modelo);
 
         if ($modelo === null) {
             return response()->json(['erro' => 'Resource is null'], 404);
@@ -129,7 +154,11 @@ class ModeloController extends Controller
         $imagem = $request->file('imagem');
         $imagem_urn = $imagem->store('imagens/modelos', 'public');
 
-        $modelo->update([
+        $modelo->fill($request->all());
+        $modelo->imagem = $imagem_urn;
+        $modelo->save();
+
+        /* $modelo->update([
             'marca_id' => $request->marca_id,
             'nome' => $request->get('nome'),
             'imagem' => $imagem_urn,
@@ -137,7 +166,7 @@ class ModeloController extends Controller
             'lugares' => $request->lugares,
             'air_bag' => $request->air_bag,
             'abs' => $request->abs
-        ]);
+        ]); */
 
         return response()->json($modelo, 200);
     }
