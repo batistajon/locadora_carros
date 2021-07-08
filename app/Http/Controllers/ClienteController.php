@@ -3,18 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Repositories\ClienteRepository;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClienteController extends Controller
 {
+    public function __construct(Cliente $cliente)
+    {
+        $this->cliente = $cliente;
+    }
+
     /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        //
+        $clienteRepository = new ClienteRepository($this->cliente);
+
+        if($request->has('filtro')) {
+            $clienteRepository->filtro($request->filtro);
+        }
+
+        if($request->has('atributos')) {
+            $atributos = $request->get('atributos'); 
+            $clienteRepository->selectAtributos($atributos);
+        }
+
+        return response()->json($clienteRepository->getResultado(), 200);
     }
 
     /**
@@ -25,7 +43,15 @@ class ClienteController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate(
+            $this->cliente->rules()
+        );
+
+        $cliente = $this->cliente->create([
+            'nome' => $request->nome
+        ]);
+
+        return response()->json($cliente, 201);
     }
 
     /**
@@ -34,9 +60,15 @@ class ClienteController extends Controller
      * @param  \App\Models\Cliente  $cliente
      * @return \Illuminate\Http\Response
      */
-    public function show(Cliente $cliente)
+    public function show($id)
     {
-        //
+        $cliente = $this->cliente->find($id);
+
+        if ($cliente === null) {
+            return response()->json(['erro' => 'Resource is null'], 404);
+        }
+
+        return response()->json($cliente, 200);
     }
 
     /**
@@ -46,9 +78,35 @@ class ClienteController extends Controller
      * @param  \App\Models\Cliente  $cliente
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Cliente $cliente)
+    public function update(Request $request, $id)
     {
-        //
+        $cliente = $this->cliente->find($id);
+
+        if ($cliente === null) {
+            return response()->json(['erro' => 'Resource is null'], 404);
+        }
+
+        if ($request->isMethod('PATCH')) {
+
+            $regrasDinamicas = [];
+
+            foreach ($cliente->rules() as $input => $regra) {
+                if (array_key_exists($input, $request->all())) {
+                    $regrasDinamicas[$input] = $regra;
+                }
+            }
+
+            $request->validate($regrasDinamicas);
+
+        } else {
+
+            $request->validate($cliente->rules());
+        }
+
+        $cliente->fill($request->all());
+        $cliente->save();
+
+        return response()->json($cliente, 200);
     }
 
     /**
@@ -57,8 +115,16 @@ class ClienteController extends Controller
      * @param  \App\Models\Cliente  $cliente
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Cliente $cliente)
+    public function destroy($id)
     {
-        //
+        $cliente = $this->cliente->find($id);
+
+        if ($cliente === null) {
+            return response()->json(['erro' => 'Resource is null'], 404);
+        }
+
+        $cliente->delete();
+
+        return response()->json(['message' => 'Registro removido com sucesso'], 200);
     }
 }
